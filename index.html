@@ -71,12 +71,51 @@
             <div><strong>Roof Area:</strong> <span id="search-area">-</span> m²</div>
         </div>
     </div>
+    <div id="basemap-container" style="position:absolute; bottom:20px; left:10px; background:white; padding:10px;
+           border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);
+           z-index:1000; font-family:sans-serif;">
+        <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">Basemap</h4>
+        <select id="basemap-select" style="padding:5px; border-radius:3px; border:1px solid #ccc; width:160px;">
+            <option value="satellite">Satellite</option>
+            <option value="streets">Streets</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </div>
+
     <div id="map"></div>
 
     <script>
         fetch("buildings.geojson")
             .then(r => r.json())
             .then(data => {
+
+                // 2️⃣ Define Basemap Configs
+                let currentBasemap = "satellite";
+
+                // 2️⃣ Define Basemap Configs (Token-Free)
+                const basemaps = {
+                    satellite: {
+                        id: 'satellite-layer',
+                        data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        attribution: 'Esri'
+                    },
+                    streets: {
+                        id: 'streets-layer',
+                        data: 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        attribution: 'OSM'
+                    },
+                    light: {
+                        id: 'light-layer',
+                        data: 'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
+                        attribution: 'CartoDB'
+                    },
+                    dark: {
+                        id: 'dark-layer',
+                        data: 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+                        attribution: 'CartoDB'
+                    }
+                };
 
                 const firstFeature = data.features[0];
                 let lng, lat;
@@ -151,11 +190,16 @@
 
                 let selectedBuildingNumber = null;
 
+                // 3️⃣ Modify getLayers() to Support Switching
                 function getLayers() {
-                    const layers = [
+                    const layers = [];
+
+                    // Base Map Layer (Token-Free TileLayer)
+                    const baseConfig = basemaps[currentBasemap];
+                    layers.push(
                         new deck.TileLayer({
-                            id: 'satellite-layer',
-                            data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                            id: baseConfig.id,
+                            data: baseConfig.data,
                             minZoom: 0,
                             maxZoom: 19,
                             tileSize: 256,
@@ -167,7 +211,11 @@
                                     bounds: [west, south, east, north]
                                 });
                             }
-                        }),
+                        })
+                    );
+
+                    // Buildings layer
+                    layers.push(
                         new deck.GeoJsonLayer({
                             id: "buildings",
                             data: data,
@@ -179,44 +227,35 @@
                             autoHighlight: true,
                             onHover: info => {
                                 const tooltip = document.getElementById('tooltip');
-                                const numberSpan = document.getElementById('number-value');
-                                const heightSpan = document.getElementById('height-value');
-                                const areaSpan = document.getElementById('area-value');
-
                                 if (info.object) {
                                     tooltip.style.display = 'block';
                                     tooltip.style.left = info.x + 'px';
                                     tooltip.style.top = info.y + 'px';
-                                    numberSpan.innerText = info.object.properties.number || 'N/A';
-                                    const height = info.object.properties.height_m;
-                                    heightSpan.innerText = height ? height.toFixed(2) : 'N/A';
-                                    try {
-                                        const area = turf.area(info.object);
-                                        areaSpan.innerText = area ? area.toFixed(2) : 'N/A';
-                                    } catch (e) {
-                                        console.error("Area calculation error:", e);
-                                        areaSpan.innerText = 'Error';
-                                    }
+                                    document.getElementById('number-value').innerText =
+                                        info.object.properties.number || 'N/A';
+                                    document.getElementById('height-value').innerText =
+                                        info.object.properties.height_m?.toFixed(2) || 'N/A';
+                                    document.getElementById('area-value').innerText =
+                                        turf.area(info.object).toFixed(2);
                                 } else {
                                     tooltip.style.display = 'none';
                                 }
                             }
                         })
-                    ];
+                    );
 
+                    // Highlight layer
                     const highlightLayer = getHighlightLayer();
-                    if (highlightLayer) {
-                        layers.push(highlightLayer);
-                    }
+                    if (highlightLayer) layers.push(highlightLayer);
 
                     return layers;
                 }
 
                 window.deckgl = new deck.DeckGL({
                     container: "map",
-                    map: mapboxgl,
-                    mapboxAccessToken: "YOUR_MAPBOX_TOKEN_HERE",
-                    mapStyle: "mapbox://styles/mapbox/satellite-streets-v12",
+                    // map: mapboxgl, // Removed dependency
+                    // mapboxAccessToken: "YOUR_MAPBOX_TOKEN_HERE", // Removed dependency
+                    // mapStyle: basemaps[currentBasemap].mapStyle, // Removed dependency
                     viewState: currentViewState,
                     controller: true,
                     onViewStateChange: ({ viewState }) => {
@@ -224,6 +263,15 @@
                         deckgl.setProps({ viewState: currentViewState });
                     },
                     layers: getLayers()
+                });
+
+                // 5️⃣ Add Basemap Change Listener
+                document.getElementById("basemap-select").addEventListener("change", e => {
+                    currentBasemap = e.target.value;
+
+                    deckgl.setProps({
+                        layers: getLayers()
+                    });
                 });
 
                 // Search Functionality
