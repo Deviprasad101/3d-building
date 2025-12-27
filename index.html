@@ -31,79 +31,81 @@
 
 <body>
 
-    <div id="legend"
-        style="position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 1000; font-family: sans-serif; min-width: 150px;">
-        <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Legend</h4>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                style="display:inline-block;width:15px;height:15px;background-color:rgb(12, 227, 12);margin-right:8px;border:1px solid #ccc;"></span>0
-            - 10m</div>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                style="display:inline-block;width:15px;height:15px;background-color:rgb(15, 15, 208);margin-right:8px;border:1px solid #ccc;"></span>10
-            - 20m</div>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                style="display:inline-block;width:15px;height:15px;background-color:rgb(181, 102, 115);margin-right:8px;border:1px solid #ccc;"></span>20
-            - 30m</div>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                style="display:inline-block;width:15px;height:15px;background-color:rgb(224, 163, 51);margin-right:8px;border:1px solid #ccc;"></span>30
-            - 50m</div>
-        <div style="display: flex; align-items: center;"><span
-                style="display:inline-block;width:15px;height:15px;background-color:rgb(255, 0, 0);margin-right:8px;border:1px solid #ccc;"></span>50m
-            +</div>
+    <div id="sidebar"
+        style="position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; font-family: sans-serif; max-height: 95vh; overflow-y: auto;">
+
+        <!-- 1. Height Legend -->
+        <div id="legend"
+            style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); min-width: 150px;">
+            <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Legend</h4>
+            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(12, 227, 12);margin-right:8px;border:1px solid #ccc;"></span>0
+                - 10m</div>
+            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(15, 15, 208);margin-right:8px;border:1px solid #ccc;"></span>10
+                - 20m</div>
+            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(181, 102, 115);margin-right:8px;border:1px solid #ccc;"></span>20
+                - 30m</div>
+            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(224, 163, 51);margin-right:8px;border:1px solid #ccc;"></span>30
+                - 50m</div>
+            <div style="display: flex; align-items: center;"><span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(255, 0, 0);margin-right:8px;border:1px solid #ccc;"></span>50m
+                +</div>
+        </div>
+
+        <!-- 2. Search Building -->
+        <div id="search-container"
+            style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+            <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Search Building</h4>
+            <div style="display: flex; margin-bottom: 10px;">
+                <input type="text" id="search-input" placeholder="Enter Number"
+                    style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; margin-right: 5px; width: 100px;">
+                <button id="search-btn"
+                    style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">Go</button>
+            </div>
+            <div id="search-result" style="display: none;">
+                <div><strong>Height:</strong> <span id="search-height">-</span> m</div>
+                <div><strong>Roof Area:</strong> <span id="search-area">-</span> m²</div>
+            </div>
+        </div>
+
+        <!-- 3. Road Distance (OSRM) -->
+        <div style="background:white; padding:10px; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);">
+
+            <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">
+                Road Distance
+            </h4>
+
+            <input id="road-a" placeholder="Building A" style="width:90px; margin-bottom:5px;"><br>
+            <input id="road-b" placeholder="Building B" style="width:90px; margin-bottom:5px;"><br>
+
+            <button id="road-btn">Calculate</button>
+
+            <div id="road-output" style="margin-top:8px; font-size:13px;"></div>
+        </div>
+
+        <!-- 4. Basemap -->
+        <div id="basemap-container"
+            style="background:white; padding:10px; border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);">
+            <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">Basemap</h4>
+            <select id="basemap-select" style="padding:5px; border-radius:3px; border:1px solid #ccc; width:160px;">
+                <option value="satellite">Satellite</option>
+                <option value="streets">Streets</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+
     </div>
+
     <div id="tooltip"
         style="position: absolute; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); pointer-events: none; display: none; z-index: 1000; font-family: sans-serif; min-width: 150px; transform: translate(10px, 10px);">
         <h4 style="margin: 0 0 5px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Building Info</h4>
         <div><strong>No:</strong> <span id="number-value">-</span></div>
         <div><strong>Height:</strong> <span id="height-value">-</span> m</div>
         <div><strong>Roof Area:</strong> <span id="area-value">-</span> m²</div>
-    </div>
-    <div id="search-container"
-        style="position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 1000; font-family: sans-serif;">
-        <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Search Building</h4>
-        <div style="display: flex; margin-bottom: 10px;">
-            <input type="text" id="search-input" placeholder="Enter Number"
-                style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; margin-right: 5px; width: 100px;">
-            <button id="search-btn"
-                style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">Go</button>
-        </div>
-        <div id="search-result" style="display: none;">
-            <div><strong>Height:</strong> <span id="search-height">-</span> m</div>
-            <div><strong>Roof Area:</strong> <span id="search-area">-</span> m²</div>
-        </div>
-    </div>
-    </div>
-
-
-
-    </div>
-
-    <!-- Road Distance (OSRM) -->
-    <div style="position:absolute; top:380px; right:10px; background:white; padding:10px;
-    border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);
-    z-index:1000; font-family:sans-serif;">
-
-        <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">
-            Road Distance
-        </h4>
-
-        <input id="road-a" placeholder="Building A" style="width:90px; margin-bottom:5px;"><br>
-        <input id="road-b" placeholder="Building B" style="width:90px; margin-bottom:5px;"><br>
-
-        <button id="road-btn">Calculate</button>
-
-        <div id="road-output" style="margin-top:8px; font-size:13px;"></div>
-    </div>
-
-    <div id="basemap-container" style="position:absolute; bottom:20px; left:10px; background:white; padding:10px;
-           border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);
-           z-index:1000; font-family:sans-serif;">
-        <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">Basemap</h4>
-        <select id="basemap-select" style="padding:5px; border-radius:3px; border:1px solid #ccc; width:160px;">
-            <option value="satellite">Satellite</option>
-            <option value="streets">Streets</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-        </select>
     </div>
 
     <div id="map"></div>
