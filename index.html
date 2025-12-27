@@ -246,7 +246,7 @@
 
                     // Distance in meters
                     document.getElementById('road-output').innerHTML =
-                        `<b>Road distance:</b> ${route.distance.toFixed(2)} m`;
+                        `<b>Road Distance:</b><br>${route.distance.toFixed(2)} m<br>${(route.distance / 1000).toFixed(2)} km`;
 
                     roadRouteGeoJSON = {
                         type: "Feature",
