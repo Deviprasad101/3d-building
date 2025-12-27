@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>DeckGL Test</title>
+
+    <!-- Deck.gl -->
+    <script src="https://unpkg.com/deck.gl@8.9.36/dist.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+    <!-- Mapbox -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="legend"
+        style="position: absolute; top: 10px; left: 10px; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 1000; font-family: sans-serif; min-width: 150px;">
+        <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Legend</h4>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                style="display:inline-block;width:15px;height:15px;background-color:rgb(12, 227, 12);margin-right:8px;border:1px solid #ccc;"></span>0
+            - 10m</div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                style="display:inline-block;width:15px;height:15px;background-color:rgb(15, 15, 208);margin-right:8px;border:1px solid #ccc;"></span>10
+            - 20m</div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                style="display:inline-block;width:15px;height:15px;background-color:rgb(181, 102, 115);margin-right:8px;border:1px solid #ccc;"></span>20
+            - 30m</div>
+        <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
+                style="display:inline-block;width:15px;height:15px;background-color:rgb(224, 163, 51);margin-right:8px;border:1px solid #ccc;"></span>30
+            - 50m</div>
+        <div style="display: flex; align-items: center;"><span
+                style="display:inline-block;width:15px;height:15px;background-color:rgb(255, 0, 0);margin-right:8px;border:1px solid #ccc;"></span>50m
+            +</div>
+    </div>
+    <div id="tooltip"
+        style="position: absolute; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); pointer-events: none; display: none; z-index: 1000; font-family: sans-serif; min-width: 150px; transform: translate(10px, 10px);">
+        <h4 style="margin: 0 0 5px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Building Info</h4>
+        <div><strong>No:</strong> <span id="number-value">-</span></div>
+        <div><strong>Height:</strong> <span id="height-value">-</span> m</div>
+        <div><strong>Roof Area:</strong> <span id="area-value">-</span> m²</div>
+    </div>
+    <div id="search-container"
+        style="position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 1000; font-family: sans-serif;">
+        <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Search Building</h4>
+        <div style="display: flex; margin-bottom: 10px;">
+            <input type="text" id="search-input" placeholder="Enter Number"
+                style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; margin-right: 5px; width: 100px;">
+            <button id="search-btn"
+                style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">Go</button>
+        </div>
+        <div id="search-result" style="display: none;">
+            <div><strong>Height:</strong> <span id="search-height">-</span> m</div>
+            <div><strong>Roof Area:</strong> <span id="search-area">-</span> m²</div>
+        </div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+        fetch("buildings.geojson")
+            .then(r => r.json())
+            .then(data => {
+
+                const firstFeature = data.features[0];
+                let lng, lat;
+
+                if (firstFeature.geometry.type === "Polygon") {
+                    [lng, lat] = firstFeature.geometry.coordinates[0][0];
+                } else if (firstFeature.geometry.type === "MultiPolygon") {
+                    [lng, lat] = firstFeature.geometry.coordinates[0][0][0];
+                }
+
+                function getHeightColor(h) {
+                    if (!h) return [200, 200, 200, 180]; // Grey for no data
+                    if (h <= 10) return [0, 255, 0, 180]; // Green
+                    if (h <= 20) return [0, 0, 255, 180]; // Blue
+                    if (h <= 30) return [255, 192, 203, 180]; // Pink
+                    if (h <= 50) return [255, 165, 0, 180]; // Orange
+                    return [255, 0, 0, 180]; // Red
+                }
+
+                // Calculate centroids and create data for TextLayer
+                // Calculate centroids and create data for TextLayer
+                const textData = data.features.map((feature, index) => {
+                    const number = (index + 1).toString();
+                    feature.properties.number = number; // Add to properties for tooltip
+
+                    const centroid = turf.centroid(feature);
+                    return {
+                        position: centroid.geometry.coordinates,
+                        text: number,
+                        color: [255, 255, 255]
+                    };
+                });
+
+                let currentViewState = {
+                    longitude: lng,
+                    latitude: lat,
+                    zoom: 16,
+                    pitch: 60,
+                    bearing: -30
+                };
+                function getHighlightLayer() {
+                    if (!selectedBuildingNumber) return null;
+
+                    const feature = data.features.find(
+                        f => f.properties.number === selectedBuildingNumber
+                    );
+
+                    if (!feature) return null;
+
+                    return new deck.GeoJsonLayer({
+                        id: 'selected-building-highlight',
+                        data: feature,
+                        extruded: true,
+                        wireframe: false,
+
+                        // 🔥 Make it stand out ABOVE other buildings
+                        getElevation: f => (f.properties.height_m ?? 20) + 15,
+
+                        // 🔥 DARK semi-transparent fill
+                        getFillColor: [0, 0, 0, 160],   // dark black overlay
+
+                        // 🔥 STRONG bright outline
+                        getLineColor: [255, 255, 0, 255], // bright yellow
+                        lineWidthUnits: 'pixels',
+                        getLineWidth: 6,
+
+                        pickable: false
+                    });
+                }
+
+
+
+                let selectedBuildingNumber = null;
+
+                function getLayers() {
+                    const layers = [
+                        new deck.TileLayer({
+                            id: 'satellite-layer',
+                            data: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                            minZoom: 0,
+                            maxZoom: 19,
+                            tileSize: 256,
+                            renderSubLayers: props => {
+                                const { bbox: { west, south, east, north } } = props.tile;
+                                return new deck.BitmapLayer(props, {
+                                    data: null,
+                                    image: props.data,
+                                    bounds: [west, south, east, north]
+                                });
+                            }
+                        }),
+                        new deck.GeoJsonLayer({
+                            id: "buildings",
+                            data: data,
+                            extruded: true,
+                            wireframe: true,
+                            getElevation: f => f.properties.height_m ?? 20,
+                            getFillColor: f => getHeightColor(f.properties.height_m),
+                            pickable: true,
+                            autoHighlight: true,
+                            onHover: info => {
+                                const tooltip = document.getElementById('tooltip');
+                                const numberSpan = document.getElementById('number-value');
+                                const heightSpan = document.getElementById('height-value');
+                                const areaSpan = document.getElementById('area-value');
+
+                                if (info.object) {
+                                    tooltip.style.display = 'block';
+                                    tooltip.style.left = info.x + 'px';
+                                    tooltip.style.top = info.y + 'px';
+                                    numberSpan.innerText = info.object.properties.number || 'N/A';
+                                    const height = info.object.properties.height_m;
+                                    heightSpan.innerText = height ? height.toFixed(2) : 'N/A';
+                                    try {
+                                        const area = turf.area(info.object);
+                                        areaSpan.innerText = area ? area.toFixed(2) : 'N/A';
+                                    } catch (e) {
+                                        console.error("Area calculation error:", e);
+                                        areaSpan.innerText = 'Error';
+                                    }
+                                } else {
+                                    tooltip.style.display = 'none';
+                                }
+                            }
+                        })
+                    ];
+
+                    const highlightLayer = getHighlightLayer();
+                    if (highlightLayer) {
+                        layers.push(highlightLayer);
+                    }
+
+                    return layers;
+                }
+
+                window.deckgl = new deck.DeckGL({
+                    container: "map",
+                    map: mapboxgl,
+                    mapboxAccessToken: "YOUR_MAPBOX_TOKEN_HERE",
+                    mapStyle: "mapbox://styles/mapbox/satellite-streets-v12",
+                    viewState: currentViewState,
+                    controller: true,
+                    onViewStateChange: ({ viewState }) => {
+                        currentViewState = viewState;
+                        deckgl.setProps({ viewState: currentViewState });
+                    },
+                    layers: getLayers()
+                });
+
+                // Search Functionality
+                document.getElementById('search-btn').addEventListener('click', () => {
+                    const searchInput = document.getElementById('search-input').value.trim();
+                    const resultDiv = document.getElementById('search-result');
+                    const heightSpan = document.getElementById('search-height');
+                    const areaSpan = document.getElementById('search-area');
+
+                    if (!searchInput) {
+                        alert("Please enter a building number.");
+                        return;
+                    }
+
+                    const feature = data.features.find(f => f.properties.number === searchInput);
+
+                    if (feature) {
+                        // Update state
+                        selectedBuildingNumber = searchInput;
+
+                        resultDiv.style.display = 'block';
+
+                        // Height
+                        const height = feature.properties.height_m;
+                        heightSpan.innerText = height ? height.toFixed(2) : 'N/A';
+
+                        // Area
+                        try {
+                            const area = turf.area(feature);
+                            areaSpan.innerText = area ? area.toFixed(2) : 'N/A';
+                        } catch (e) {
+                            console.error("Area calculation error:", e);
+                            areaSpan.innerText = 'Error';
+                        }
+
+                        // Fly to building
+                        const centroid = turf.centroid(feature).geometry.coordinates;
+                        const [flyLng, flyLat] = centroid;
+
+                        currentViewState = {
+                            ...currentViewState,
+                            longitude: flyLng,
+                            latitude: flyLat,
+                            zoom: 18,
+                            pitch: 65,
+                            bearing: -30,
+                            transitionDuration: 1500,
+                            transitionInterpolator: new deck.FlyToInterpolator()
+                        };
+
+                        // Trigger re-render with new layers and view state
+                        deckgl.setProps({
+                            viewState: currentViewState,
+                            layers: getLayers()
+                        });
+
+                    } else {
+                        // Clear highlight if not found
+                        selectedBuildingNumber = null;
+
+                        resultDiv.style.display = 'none';
+                        alert("Building not found!");
+
+                        // Re-render to clear highlight
+                        deckgl.setProps({ layers: getLayers() });
+                    }
+                });
+            });
+    </script>
+
+
+</body>
+
+</html>
