@@ -71,6 +71,29 @@
             <div><strong>Roof Area:</strong> <span id="search-area">-</span> m²</div>
         </div>
     </div>
+    </div>
+
+
+
+    </div>
+
+    <!-- Road Distance (OSRM) -->
+    <div style="position:absolute; top:380px; right:10px; background:white; padding:10px;
+    border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);
+    z-index:1000; font-family:sans-serif;">
+
+        <h4 style="margin:0 0 8px 0; border-bottom:1px solid #ccc;">
+            Road Distance
+        </h4>
+
+        <input id="road-a" placeholder="Building A" style="width:90px; margin-bottom:5px;"><br>
+        <input id="road-b" placeholder="Building B" style="width:90px; margin-bottom:5px;"><br>
+
+        <button id="road-btn">Calculate</button>
+
+        <div id="road-output" style="margin-top:8px; font-size:13px;"></div>
+    </div>
+
     <div id="basemap-container" style="position:absolute; bottom:20px; left:10px; background:white; padding:10px;
            border-radius:5px; box-shadow:0 0 10px rgba(0,0,0,0.2);
            z-index:1000; font-family:sans-serif;">
@@ -190,6 +213,64 @@
 
                 let selectedBuildingNumber = null;
 
+                let roadRouteGeoJSON = null;
+
+
+
+                async function calculateRoadDistance(numA, numB) {
+                    const f1 = data.features.find(f => f.properties.number === numA);
+                    const f2 = data.features.find(f => f.properties.number === numB);
+
+                    if (!f1 || !f2) {
+                        alert("One or both buildings not found");
+                        return;
+                    }
+
+                    const c1 = turf.centroid(f1).geometry.coordinates;
+                    const c2 = turf.centroid(f2).geometry.coordinates;
+
+                    const url =
+                        `https://router.project-osrm.org/route/v1/driving/` +
+                        `${c1[0]},${c1[1]};${c2[0]},${c2[1]}` +
+                        `?overview=full&geometries=geojson`;
+
+                    const res = await fetch(url);
+                    const json = await res.json();
+
+                    if (!json.routes || !json.routes.length) {
+                        alert("Routing failed");
+                        return;
+                    }
+
+                    const route = json.routes[0];
+
+                    // Distance in meters
+                    document.getElementById('road-output').innerHTML =
+                        `<b>Road distance:</b> ${route.distance.toFixed(2)} m`;
+
+                    roadRouteGeoJSON = {
+                        type: "Feature",
+                        geometry: route.geometry
+                    };
+
+                    // Fly to route center
+                    const mid = turf.centroid(roadRouteGeoJSON).geometry.coordinates;
+
+                    currentViewState = {
+                        ...currentViewState,
+                        longitude: mid[0],
+                        latitude: mid[1],
+                        zoom: 16,
+                        transitionDuration: 1200,
+                        transitionInterpolator: new deck.FlyToInterpolator()
+                    };
+
+                    deckgl.setProps({
+                        viewState: currentViewState,
+                        layers: getLayers()
+                    });
+                }
+
                 // 3️⃣ Modify getLayers() to Support Switching
                 function getLayers() {
                     const layers = [];
@@ -246,6 +327,19 @@
                     // Highlight layer
                     const highlightLayer = getHighlightLayer();
                     if (highlightLayer) layers.push(highlightLayer);
+
+
+
+                    if (roadRouteGeoJSON) {
+                        layers.push(new deck.GeoJsonLayer({
+                            id: 'road-route',
+                            data: roadRouteGeoJSON,
+                            getLineColor: [0, 0, 0, 255],
+                            lineWidthUnits: 'pixels',
+                            getLineWidth: 4,
+                            pickable: false
+                        }));
+                    }
 
                     return layers;
                 }
@@ -338,6 +432,20 @@
                         deckgl.setProps({ layers: getLayers() });
                     }
                 });
+
+
+
+                document.getElementById('road-btn').onclick = () => {
+                    const a = document.getElementById('road-a').value.trim();
+                    const b = document.getElementById('road-b').value.trim();
+
+                    if (!a || !b) {
+                        alert("Enter both building numbers");
+                        return;
+                    }
+
+                    calculateRoadDistance(a, b);
+                };
             });
     </script>
 
