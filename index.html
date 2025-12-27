@@ -246,6 +246,7 @@
                 let selectedBuildingNumber = null;
 
                 let roadRouteGeoJSON = null;
+                let dashOffset = 0;
 
                 // Config for filtering
                 const heightFilters = {
@@ -384,12 +385,30 @@
 
 
                     if (roadRouteGeoJSON) {
+                        // 1. Blue Base Line (Match Leaflet AntPath: color "blue" #3388ff, weight 5, opacity 0.8)
                         layers.push(new deck.GeoJsonLayer({
-                            id: 'road-route',
+                            id: 'road-route-bg',
                             data: roadRouteGeoJSON,
-                            getLineColor: [0, 0, 0, 255],
+                            getLineColor: [51, 136, 255, 204], // Leaflet Blue, 0.8 Opacity
+                            getLineWidth: 5,
                             lineWidthUnits: 'pixels',
-                            getLineWidth: 4,
+                            lineCapRounded: true,
+                            lineJointRounded: true,
+                            pickable: false
+                        }));
+
+                        // 2. White Moving Dashes (Match Leaflet AntPath: pulseColor "white", dashArray [10, 20])
+                        layers.push(new deck.GeoJsonLayer({
+                            id: 'road-route-dash',
+                            data: roadRouteGeoJSON,
+                            getLineColor: [255, 255, 255, 204], // White, 0.8 Opacity
+                            getLineWidth: 5,
+                            lineWidthUnits: 'pixels',
+                            lineCapRounded: true,
+                            lineJointRounded: true,
+                            extensions: [new deck.PathStyleExtension({ dash: true })],
+                            getDashArray: [10, 20], // Draw 10, Gap 20
+                            dashOffset: dashOffset,
                             pickable: false
                         }));
                     }
@@ -519,6 +538,18 @@
                         });
                     });
                 });
+
+                // Animation Loop
+                function animate() {
+                    if (roadRouteGeoJSON) {
+                        dashOffset = (dashOffset - 1) % 30; // Cycle pattern (10+20=30)
+                        deckgl.setProps({
+                            layers: getLayers()
+                        });
+                    }
+                    requestAnimationFrame(animate);
+                }
+                animate();
             });
     </script>
 
