@@ -34,25 +34,55 @@
     <div id="sidebar"
         style="position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; font-family: sans-serif; max-height: 95vh; overflow-y: auto;">
 
-        <!-- 1. Height Legend -->
+        <!-- 1. Height Legend (Checkboxes) -->
         <div id="legend"
             style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); min-width: 150px;">
-            <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Legend</h4>
-            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                    style="display:inline-block;width:15px;height:15px;background-color:rgb(12, 227, 12);margin-right:8px;border:1px solid #ccc;"></span>0
-                - 10m</div>
-            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                    style="display:inline-block;width:15px;height:15px;background-color:rgb(15, 15, 208);margin-right:8px;border:1px solid #ccc;"></span>10
-                - 20m</div>
-            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                    style="display:inline-block;width:15px;height:15px;background-color:rgb(181, 102, 115);margin-right:8px;border:1px solid #ccc;"></span>20
-                - 30m</div>
-            <div style="display: flex; align-items: center; margin-bottom: 5px;"><span
-                    style="display:inline-block;width:15px;height:15px;background-color:rgb(224, 163, 51);margin-right:8px;border:1px solid #ccc;"></span>30
-                - 50m</div>
-            <div style="display: flex; align-items: center;"><span
-                    style="display:inline-block;width:15px;height:15px;background-color:rgb(255, 0, 0);margin-right:8px;border:1px solid #ccc;"></span>50m
-                +</div>
+            <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Filters</h4>
+
+            <!-- 0-10m -->
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                <input type="checkbox" checked class="filter-checkbox" data-min="0" data-max="10"
+                    style="margin-right: 8px;">
+                <span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(12, 227, 12);margin-right:8px;border:1px solid #ccc;"></span>
+                0 - 10m
+            </label>
+
+            <!-- 10-20m -->
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                <input type="checkbox" checked class="filter-checkbox" data-min="10" data-max="20"
+                    style="margin-right: 8px;">
+                <span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(15, 15, 208);margin-right:8px;border:1px solid #ccc;"></span>
+                10 - 20m
+            </label>
+
+            <!-- 20-30m -->
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                <input type="checkbox" checked class="filter-checkbox" data-min="20" data-max="30"
+                    style="margin-right: 8px;">
+                <span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(181, 102, 115);margin-right:8px;border:1px solid #ccc;"></span>
+                20 - 30m
+            </label>
+
+            <!-- 30-50m -->
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                <input type="checkbox" checked class="filter-checkbox" data-min="30" data-max="50"
+                    style="margin-right: 8px;">
+                <span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(224, 163, 51);margin-right:8px;border:1px solid #ccc;"></span>
+                30 - 50m
+            </label>
+
+            <!-- 50m+ -->
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" checked class="filter-checkbox" data-min="50" data-max="9999"
+                    style="margin-right: 8px;">
+                <span
+                    style="display:inline-block;width:15px;height:15px;background-color:rgb(255, 0, 0);margin-right:8px;border:1px solid #ccc;"></span>
+                50m +
+            </label>
         </div>
 
         <!-- 2. Search Building -->
@@ -217,7 +247,16 @@
 
                 let roadRouteGeoJSON = null;
 
-
+                // Config for filtering
+                const heightFilters = {
+                    ranges: [
+                        { min: 0, max: 10, enabled: true },
+                        { min: 10, max: 20, enabled: true },
+                        { min: 20, max: 30, enabled: true },
+                        { min: 30, max: 50, enabled: true },
+                        { min: 50, max: 9999, enabled: true }
+                    ]
+                };
 
                 async function calculateRoadDistance(numA, numB) {
                     const f1 = data.features.find(f => f.properties.number === numA);
@@ -273,7 +312,7 @@
                     });
                 }
 
-                // 3️⃣ Modify getLayers() to Support Switching
+                // 3️⃣ Modify getLayers() to Support Switching & Filtering
                 function getLayers() {
                     const layers = [];
 
@@ -297,11 +336,23 @@
                         })
                     );
 
+                    // Filter Logic: CHECKBOXES
+                    const filteredFeatures = data.features.filter(f => {
+                        const h = f.properties.height_m ?? 0;
+                        // Returns true if height matches ANY enabled range
+                        return heightFilters.ranges.some(range =>
+                            range.enabled && h >= range.min && h < range.max
+                        );
+                    });
+
                     // Buildings layer
                     layers.push(
                         new deck.GeoJsonLayer({
                             id: "buildings",
-                            data: data,
+                            data: {
+                                type: "FeatureCollection",
+                                features: filteredFeatures
+                            },
                             extruded: true,
                             wireframe: true,
                             getElevation: f => f.properties.height_m ?? 20,
@@ -448,6 +499,26 @@
 
                     calculateRoadDistance(a, b);
                 };
+
+                // Add Checkbox Listeners
+                document.querySelectorAll('.filter-checkbox').forEach(cb => {
+                    cb.addEventListener('change', (e) => {
+                        const min = parseFloat(e.target.dataset.min);
+                        const max = parseFloat(e.target.dataset.max);
+                        const isChecked = e.target.checked;
+
+                        // Update global config
+                        const range = heightFilters.ranges.find(r => r.min === min && r.max === max);
+                        if (range) {
+                            range.enabled = isChecked;
+                        }
+
+                        // Trigger re-render
+                        deckgl.setProps({
+                            layers: getLayers()
+                        });
+                    });
+                });
             });
     </script>
 
