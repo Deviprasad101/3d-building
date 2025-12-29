@@ -39,6 +39,12 @@
             style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); min-width: 150px;">
             <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Height Filters</h4>
 
+            <!-- Remove Colors Checkbox -->
+            <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer; font-weight: bold;">
+                <input type="checkbox" id="remove-colors-checkbox" style="margin-right: 8px;">
+                Remove Colors
+            </label>
+
             <!-- 0-10m -->
             <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
                 <input type="checkbox" checked class="filter-checkbox" data-min="0" data-max="10"
@@ -248,7 +254,9 @@
                 let roadRouteGeoJSON = null;
                 let dashOffset = 0;
 
+
                 // Config for filtering
+                let removeColors = false;
                 const heightFilters = {
                     ranges: [
                         { min: 0, max: 10, enabled: true },
@@ -357,7 +365,10 @@
                             extruded: true,
                             wireframe: true,
                             getElevation: f => f.properties.height_m ?? 20,
-                            getFillColor: f => getHeightColor(f.properties.height_m),
+                            getFillColor: f => {
+                                if (removeColors) return [200, 200, 200, 255]; // Neutral grey
+                                return getHeightColor(f.properties.height_m);
+                            },
                             pickable: true,
                             autoHighlight: true,
                             onHover: info => {
@@ -536,6 +547,14 @@
                         deckgl.setProps({
                             layers: getLayers()
                         });
+                    });
+                });
+
+                // Remove Colors Checkbox Listener
+                document.getElementById('remove-colors-checkbox').addEventListener('change', (e) => {
+                    removeColors = e.target.checked;
+                    deckgl.setProps({
+                        layers: getLayers()
                     });
                 });
 
